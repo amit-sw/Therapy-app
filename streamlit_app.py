@@ -82,22 +82,25 @@ def show_download_sidebar():
         file_path = Path(RESULT_FILE)
         if file_path.exists():
             st.divider()
+            local_file_name = st.text_input("File Name for Download", value = "complete_set.csv")
             with open(RESULT_FILE, "rb") as file:
                 file_bytes = file.read()
-            st.download_button(label="Download",data=file_bytes,file_name="complete_set.csv",mime="text/csv")
+            st.download_button(label="Download",data=file_bytes,file_name= local_file_name,mime="text/csv")
             if st.button("Clear file"):
                 os.remove(RESULT_FILE)
+        
         records = get_all_firestore_records()
         if records:
             df = pd.DataFrame(records)
             df.drop(columns = ['id', 'doc_id'], inplace = True)
+            st.divider()
+            db_file_name = st.text_input("File Name for Download", value = DB_RESULT_FILE)
             st.download_button(
                 label = "Download from database",
                 data = df.to_csv(index = False),
-                file_name = DB_RESULT_FILE,
+                file_name = db_file_name,
                 mime = "text/csv"
-
-        )
+            )
 
 
 def save_results(count,result_df):
