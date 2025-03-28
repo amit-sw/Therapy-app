@@ -11,3 +11,5 @@ langchain-google-genai
 langchain-xai
 langchain-huggingface
 langchain-groq
+
+firebase-admin

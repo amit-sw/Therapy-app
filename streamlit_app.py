@@ -10,11 +10,28 @@ from pydantic.v1 import BaseModel
 from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, AIMessage, ChatMessage
 import pandas as pd
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
+from firebase_config import initialize_firebase, get_all_firestore_records, upload_to_firestore
+
 PROMPT_FILE='data/prompts.csv'
 RESULT_FILE='data/results.csv'
+DB_RESULT_FILE = 'results_db.csv'
+
 current_date = datetime.now().strftime("%Y-%m-%d")
+
+def upload_results(model_name, prompt, resp, time_elapsed, run_date):
+    record =  {
+        'id' : str(uuid.uuid4()),
+        'model': model_name,
+        'prompt': prompt,
+        'response': resp,
+        'time_elapsed': time_elapsed,
+        'run_date': run_date,
+    }
+    upload_to_firestore(record)
+
 def initialize_models():
     os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
     os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
@@ -34,6 +51,7 @@ def initialize_models():
         #"claude-haiku": ChatAnthropic(model="claude-3-haiku-20240307"),
     }
     return models
+
 def apply_model(model,user_input):
     try:
         start_time=time.time()
@@ -45,6 +63,7 @@ def apply_model(model,user_input):
         return response.content, elapsed_time
     except Exception as e:
         return f"Error: {e}",0
+    
 def read_file_from_ui_or_fs():
     with st.sidebar:
         uploaded_file = st.file_uploader("Upload a prompt file", type=["csv"])
@@ -57,16 +76,30 @@ def read_file_from_ui_or_fs():
             df=pd.read_csv(PROMPT_FILE)
             return df
     return None
+
 def show_download_sidebar():
-    file_path = Path(RESULT_FILE)
-    if file_path.exists():
-        with st.sidebar:
+    with st.sidebar:
+        file_path = Path(RESULT_FILE)
+        if file_path.exists():
             st.divider()
             with open(RESULT_FILE, "rb") as file:
                 file_bytes = file.read()
-            st.download_button(label="Download",data=file_bytes,file_name="complete_set.csv",mime="text/csv",)
+            st.download_button(label="Download",data=file_bytes,file_name="complete_set.csv",mime="text/csv")
             if st.button("Clear file"):
                 os.remove(RESULT_FILE)
+        records = get_all_firestore_records()
+        if records:
+            df = pd.DataFrame(records)
+            df.drop(columns = ['id', 'doc_id'], inplace = True)
+            st.download_button(
+                label = "Download from database",
+                data = df.to_csv(index = False),
+                file_name = DB_RESULT_FILE,
+                mime = "text/csv"
+
+        )
+
+
 def save_results(count,result_df):
     if count>0:
         if os.path.exists(RESULT_FILE):
@@ -86,7 +119,9 @@ def run_all_models(df,model_list,run_count):
                     user_input=row['Prompt']
                     update_ui.write(f"Completed {current_count}/{total_count} steps. {i=}, {model_choice=}, {user_input=}")
                     rsp,elapsed_time = apply_model(models[model_choice],user_input)
+                    current_date = datetime.now().strftime("%Y-%m-%d")
                     results.append({'model':model_choice,'prompt':user_input,'response':rsp,'time_seconds':elapsed_time,'current_date':current_date})
+                    upload_results(model_choice, user_input, rsp, elapsed_time, current_date)
                     current_count+=1
                     progress_bar.progress( (1.0*current_count) / total_count)
     update_ui.write(f"All done!!")
@@ -97,6 +132,11 @@ def run_all_models(df,model_list,run_count):
 # Main
 #
 st.title("Sentio")
+initialize_firebase()
+records = get_all_firestore_records()  
+if records:
+    df = pd.DataFrame(records)
+st.dataframe(df)
 update_ui=st.empty()
 df = read_file_from_ui_or_fs()
 models=initialize_models()
