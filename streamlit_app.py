@@ -139,7 +139,7 @@ initialize_firebase()
 records = get_all_firestore_records()  
 if records:
     df = pd.DataFrame(records)
-st.dataframe(df)
+    st.dataframe(df)
 update_ui=st.empty()
 df = read_file_from_ui_or_fs()
 models=initialize_models()
