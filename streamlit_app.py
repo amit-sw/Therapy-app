@@ -21,9 +21,10 @@ DB_RESULT_FILE = 'results_db.csv'
 
 current_date = datetime.now().strftime("%Y-%m-%d")
 
-def upload_results(model_name, prompt, resp, time_elapsed, run_date):
+def upload_results(group_name, model_name, prompt, resp, time_elapsed, run_date):
     record =  {
         'id' : str(uuid.uuid4()),
+        'group': group_name,
         'model': model_name,
         'prompt': prompt,
         'response': resp,
@@ -109,28 +110,32 @@ def save_results(count,result_df):
             result_df.to_csv(RESULT_FILE,mode='a', index=False, header=False)
         else:
             result_df.to_csv(RESULT_FILE, index=False)
-def run_all_models(df,model_list,run_count):
+def run_all_models(df,model_list, group_list, run_count):
     update_ui.write(f"Starting run with {run_count=} for {models=}")
     current_count=0
-    total_count=run_count*len(model_list)*df.shape[0]
+    total_count=run_count
     progress_bar=st.progress(current_count)
     results=[]
     with st.spinner("Running...", show_time=True):
-        for i in range(1,run_count+1):
-            for model_choice in model_list.keys():
-                for _,row in df.iterrows():
-                    user_input=row['Prompt']
-                    update_ui.write(f"Completed {current_count}/{total_count} steps. {i=}, {model_choice=}, {user_input=}")
-                    rsp,elapsed_time = apply_model(models[model_choice],user_input)
-                    current_date = datetime.now().strftime("%Y-%m-%d")
-                    results.append({'model':model_choice,'prompt':user_input,'response':rsp,'time_seconds':elapsed_time,'current_date':current_date})
-                    upload_results(model_choice, user_input, rsp, elapsed_time, current_date)
-                    current_count+=1
-                    progress_bar.progress( (1.0*current_count) / total_count)
-    update_ui.write(f"All done!!")
-    result_df=pd.DataFrame(results)
-    st.dataframe(result_df,hide_index=True)
-    save_results(current_count,result_df)
+        while True:
+            for group in group_list:
+                new_df = df[df['Group'] == group]
+                for model_choice in model_list.keys():
+                    for _,row in new_df.iterrows():
+                        user_input=row['Prompt']
+                        update_ui.write(f"Completed {current_count}/{total_count} steps. {current_count=}, {model_choice=}, {user_input=}")
+                        rsp,elapsed_time = apply_model(models[model_choice],user_input)
+                        current_date = datetime.now().strftime("%Y-%m-%d")
+                        results.append({'model':model_choice,'prompt':user_input,'response':rsp,'time_seconds':elapsed_time,'current_date':current_date})
+                        upload_results(group, model_choice, user_input, rsp, elapsed_time, current_date)
+                        current_count+=1
+                        progress_bar.progress( (1.0*current_count) / total_count)
+                        if current_count >= total_count:
+                            update_ui.write(f"All done!!")
+                            result_df=pd.DataFrame(results)
+                            st.dataframe(result_df,hide_index=True)
+                            save_results(current_count,result_df)
+                            return
 #
 # Main
 #
@@ -146,11 +151,13 @@ models=initialize_models()
 if df is not None:
     with st.sidebar.expander("Prompts"):
         st.dataframe(df, hide_index=True)
+        groups = df['Group'].unique()
     options = st.sidebar.multiselect('Models',options=list(models.keys()),default=list(models.keys()))
+    group_list = st.sidebar.multiselect('Groups', options = list(groups), default = list(groups))
     model_list={key:models[key] for key in options}
     run_count=st.sidebar.number_input("Runs",min_value=1,max_value=100, value=1)
     if st.sidebar.button("Run"):
-        run_all_models(df,model_list,run_count)
+        run_all_models(df,model_list, group_list, run_count)
 show_download_sidebar()
 
 
