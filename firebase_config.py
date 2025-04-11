@@ -94,7 +94,7 @@ def initialize_firebase():
         st.error(f"Unexpected error in initialize_firebase: {str(e)}")
         return False
 
-def upload_to_firestore(data):
+def upload_to_firestore(data, table_name):
     """Upload data to Firestore"""
     if not firebase_admin._apps:
         return False
@@ -102,7 +102,7 @@ def upload_to_firestore(data):
     try:
         db = firestore.client()
         # Create a collection for LLM responses
-        collection_ref = db.collection('Test_Collection')
+        collection_ref = db.collection(table_name)
         # Add the document with auto-generated ID
         collection_ref.add(data)
         return True
@@ -110,7 +110,7 @@ def upload_to_firestore(data):
         st.error(f"Error uploading to Firestore: {e}")
         return False
 
-def get_all_firestore_records():
+def get_all_firestore_records(table_name):
     """Retrieve all records from Firestore"""
     #st.write("Checking Firebase initialization...")
     if not firebase_admin._apps:
@@ -120,7 +120,7 @@ def get_all_firestore_records():
     try:
         #st.write("Getting Firestore client...")
         db = firestore.client()
-        collection_ref = db.collection('Test_Collection')
+        collection_ref = db.collection(table_name)
         #st.write("Streaming documents...")
         docs = collection_ref.stream()
         
@@ -134,7 +134,7 @@ def get_all_firestore_records():
         
         #st.write(f"Found {doc_count} documents")
         if doc_count == 0:
-            st.warning("No records found in Firestore collection 'Test_Collection'")
+            st.warning(f"No records found in Firestore collection '{table_name}'")
         return records
     except Exception as e:
         st.error(f"Error retrieving data from Firestore: {e}")
