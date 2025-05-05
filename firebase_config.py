@@ -110,6 +110,7 @@ def upload_to_firestore(data, table_name):
         st.error(f"Error uploading to Firestore: {e}")
         return False
 
+@st.cache_data
 def get_all_firestore_records(table_name):
     """Retrieve all records from Firestore"""
     #st.write("Checking Firebase initialization...")

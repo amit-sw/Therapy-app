@@ -141,13 +141,16 @@ def run_all_models(df,model_list, group_list, run_count):
 #
 st.title("Sentio")
 initialize_firebase()
+print("Firebase initialized")
 records = get_all_firestore_records('Test_Collection')  
+print("Got all records")
 if records:
     df = pd.DataFrame(records)
     st.dataframe(df)
 update_ui=st.empty()
 df = read_file_from_ui_or_fs()
 models=initialize_models()
+print("Models initialized")
 if df is not None:
     with st.sidebar.expander("Prompts"):
         st.dataframe(df, hide_index=True)
@@ -155,10 +158,12 @@ if df is not None:
     options = st.sidebar.multiselect('Models',options=list(models.keys()),default=list(models.keys()))
     group_list = st.sidebar.multiselect('Groups', options = list(groups), default = list(groups))
     model_list={key:models[key] for key in options}
-    run_count=st.sidebar.number_input("Runs",min_value=1,max_value=100, value=1)
+    run_count=st.sidebar.number_input("Runs",min_value=1,max_value=1000, value=1)
     if st.sidebar.button("Run"):
         run_all_models(df,model_list, group_list, run_count)
+print("Showing sidebar for download")
 show_download_sidebar()
+print("Done")
 
 
 
